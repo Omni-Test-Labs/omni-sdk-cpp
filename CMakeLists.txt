@@ -17,10 +17,16 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Source files
 set(SDK_SOURCES
     src/result.cpp
+    src/config.cpp
+    src/omni_sdk.cpp
 )
 
 set(HEADERS
     include/omni_sdk/result.h
+    include/omni_sdk/client.h
+    include/omni_sdk/device.h
+    include/omni_sdk/config.h
+    include/omni_sdk/omni_sdk.h
 )
 
 # Main library
