@@ -372,11 +372,15 @@ TEST(ComplexChaining, RetryPatternWithOrElse) {
         return Result<std::string>::Ok("Connected to " + host);
     };
 
-    auto retry = [&attempt, &connect](const Result<std::string>& result) -> Result<std::string> {
+    auto retry = [&attempt, &connect](const Error& error) -> Result<std::string> {
+        (void)error;
         if (attempt < 3) {
             return connect("192.168.1.1");
         }
-        return result;
+        return Result<std::string>::Err(Error(
+            ErrorKinds::CONNECTION_ERROR,
+            "Max retry attempts reached"
+        ));
     };
 
     auto result = connect("192.168.1.1")

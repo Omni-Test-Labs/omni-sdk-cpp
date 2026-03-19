@@ -6,6 +6,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Code coverage (for testing)
+option(BUILD_COVERAGE "Build with code coverage support" OFF)
+if(BUILD_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(STATUS "Building with code coverage support")
+        add_compile_options(-g -O0 --coverage)
+        add_link_options(--coverage)
+    else()
+        message(WARNING "Coverage is only supported with GCC or Clang")
+    endif()
+endif()
+
 # Compiler settings
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
@@ -16,7 +28,6 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # Source files
 set(SDK_SOURCES
-    src/result.cpp
     src/config.cpp
     src/omni_sdk.cpp
 )
@@ -31,26 +42,21 @@ set(HEADERS
     include/omni_sdk/clients/ssh_client.h
 )
 
-# Conditionally add client implementations
 # Option to build with libssh2 (SSH client)
 option(OMNI_SDK_ENABLE_SSH "Enable SSH client support" OFF)
 if(OMNI_SDK_ENABLE_SSH)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBSSH2 REQUIRED libssh2)
-    target_include_directories(omni_sdk PRIVATE ${LIBSSH2_INCLUDE_DIRS})
-    target_link_libraries(omni_sdk PRIVATE ${LIBSSH2_LIBRARIES})
-    target_compile_definitions(omni_sdk PRIVATE OMNI_SDK_ENABLE_SSH)
     list(APPEND SDK_SOURCES src/clients/ssh_client.cpp)
+    find_package(Threads REQUIRED)
 endif()
 
 # Option to build with Boost.Asio (Serial client)
 option(OMNI_SDK_ENABLE_SERIAL "Enable Serial client support" OFF)
 if(OMNI_SDK_ENABLE_SERIAL)
-    find_package(Boost REQUIRED COMPONENTS system)
-    target_include_directories(omni_sdk PRIVATE ${Boost_INCLUDE_DIRS})
-    target_link_libraries(omni_sdk PRIVATE Boost::system)
-    target_compile_definitions(omni_sdk PRIVATE OMNI_SDK_ENABLE_SERIAL)
+    find_package(Boost REQUIRED COMPONENTS system thread)
     list(APPEND SDK_SOURCES src/clients/serial_client.cpp)
+    find_package(Threads REQUIRED)
 endif()
 
 # Main library
@@ -62,6 +68,21 @@ target_include_directories(omni_sdk PUBLIC
 
 # Find dependencies
 find_package(Threads REQUIRED)
+target_link_libraries(omni_sdk PRIVATE Threads::Threads)
+
+# Link SSH dependencies
+if(OMNI_SDK_ENABLE_SSH)
+    target_include_directories(omni_sdk PRIVATE ${LIBSSH2_INCLUDE_DIRS})
+    target_link_libraries(omni_sdk PRIVATE ${LIBSSH2_LIBRARIES})
+    target_compile_definitions(omni_sdk PRIVATE OMNI_SDK_ENABLE_SSH)
+endif()
+
+# Link Serial dependencies
+if(OMNI_SDK_ENABLE_SERIAL)
+    target_include_directories(omni_sdk PRIVATE ${Boost_INCLUDE_DIRS})
+    target_link_libraries(omni_sdk PRIVATE Boost::system Boost::thread)
+    target_compile_definitions(omni_sdk PRIVATE OMNI_SDK_ENABLE_SERIAL)
+endif()
 
 # Find TOML++ (configuration)
 find_package(tomlplusplus CONFIG)

@@ -35,7 +35,12 @@ namespace omni_sdk {
         std::map<std::string, std::shared_ptr<Device>> devices;
 
         for (const auto& device_config : config.devices) {
-            auto device = std::make_shared<Device>(device_config.id, device_config);
+            // Create Config from DeviceConfig
+            Config config;
+            config.name = device_config.name;
+            config.clients = device_config.clients;
+
+            auto device = std::make_shared<Device>(device_config.id, config);
 
             // TODO: Add clients to device
             // auto client = std::make_shared<ClientType>();

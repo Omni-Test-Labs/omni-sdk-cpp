@@ -60,7 +60,27 @@ Result<SdkConfig> ConfigLoader::loadAndValidate(const std::string& path) {
 
 Result<std::map<std::string, std::string>>
 ConfigLoader::getClientConfig(const DeviceConfig& device_config, const std::string& client_name) {
-    return Result<std::map<std::string, std::string>>::Ok({});
+    (void)device_config;
+    (void)client_name;
+
+    // TODO: Implement client config lookup
+    // For now, return error if clients empty
+    if (device_config.clients.empty()) {
+        return Result<std::map<std::string, std::string>>::Err(Error{
+            ErrorKinds::CONFIG_ERROR,
+            "No clients configured for device"
+        });
+    }
+
+    auto it = device_config.clients.find(client_name);
+    if (it == device_config.clients.end()) {
+        return Result<std::map<std::string, std::string>>::Err(Error{
+            ErrorKinds::CONFIG_ERROR,
+            "Client '" + client_name + "' not found in device config"
+        });
+    }
+
+    return Result<std::map<std::string, std::string>>::Ok(it->second);
 }
 
 } // namespace omni_sdk
