@@ -27,7 +27,31 @@ set(HEADERS
     include/omni_sdk/device.h
     include/omni_sdk/config.h
     include/omni_sdk/omni_sdk.h
+    include/omni_sdk/clients/serial_client.h
+    include/omni_sdk/clients/ssh_client.h
 )
+
+# Conditionally add client implementations
+# Option to build with libssh2 (SSH client)
+option(OMNI_SDK_ENABLE_SSH "Enable SSH client support" OFF)
+if(OMNI_SDK_ENABLE_SSH)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBSSH2 REQUIRED libssh2)
+    target_include_directories(omni_sdk PRIVATE ${LIBSSH2_INCLUDE_DIRS})
+    target_link_libraries(omni_sdk PRIVATE ${LIBSSH2_LIBRARIES})
+    target_compile_definitions(omni_sdk PRIVATE OMNI_SDK_ENABLE_SSH)
+    list(APPEND SDK_SOURCES src/clients/ssh_client.cpp)
+endif()
+
+# Option to build with Boost.Asio (Serial client)
+option(OMNI_SDK_ENABLE_SERIAL "Enable Serial client support" OFF)
+if(OMNI_SDK_ENABLE_SERIAL)
+    find_package(Boost REQUIRED COMPONENTS system)
+    target_include_directories(omni_sdk PRIVATE ${Boost_INCLUDE_DIRS})
+    target_link_libraries(omni_sdk PRIVATE Boost::system)
+    target_compile_definitions(omni_sdk PRIVATE OMNI_SDK_ENABLE_SERIAL)
+    list(APPEND SDK_SOURCES src/clients/serial_client.cpp)
+endif()
 
 # Main library
 add_library(omni_sdk ${SDK_SOURCES} ${HEADERS})
@@ -38,23 +62,6 @@ target_include_directories(omni_sdk PUBLIC
 
 # Find dependencies
 find_package(Threads REQUIRED)
-
-# Option to build with libssh2 (SSH client)
-option(OMNI_SDK_ENABLE_SSH "Enable SSH client support" OFF)
-if(OMNI_SDK_ENABLE_SSH)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBSSH2 REQUIRED libssh2)
-    target_include_directories(omni_sdk PRIVATE ${LIBSSH2_INCLUDE_DIRS})
-    target_link_libraries(omni_sdk PRIVATE ${LIBSSH2_LIBRARIES})
-endif()
-
-# Option to build with Boost.Asio (Serial client)
-option(OMNI_SDK_ENABLE_SERIAL "Enable Serial client support" OFF)
-if(OMNI_SDK_ENABLE_SERIAL)
-    find_package(Boost REQUIRED COMPONENTS system)
-    target_include_directories(omni_sdk PRIVATE ${Boost_INCLUDE_DIRS})
-    target_link_libraries(omni_sdk PRIVATE Boost::system)
-endif()
 
 # Find TOML++ (configuration)
 find_package(tomlplusplus CONFIG)
