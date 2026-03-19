@@ -37,8 +37,16 @@
 #include <stdexcept>
 #include <functional>
 #include <type_traits>
+#include <vector>
 
 namespace omni_sdk {
+
+// Forward declaration with explicit specialization for void
+template<typename T>
+class Result;
+
+template<>
+class Result<void>;
 
 /**
  * @brief Error information with context and optional cause.
@@ -302,6 +310,110 @@ struct ErrorKinds {
     static constexpr const char* GRPC_ERROR = "GrpcError";
     static constexpr const char* SNMP_ERROR = "SnmpError";
     static constexpr const char* NETCONF_ERROR = "NetconfError";
+};
+
+/**
+ * @brief Specialization of Result<void> for operations with no return value.
+ * Cannot use std::variant<void, Error>, so use a simpler representation.
+ */
+template<>
+class Result<void> {
+private:
+    std::shared_ptr<Error> error_;
+
+    Result(std::shared_ptr<Error> err) : error_(err) {}
+    Result(std::nullptr_t) : error_(nullptr) {}
+
+public:
+    static Result Ok() {
+        return Result(nullptr);
+    }
+
+    static Result Err(Error error) {
+        return Result(std::make_shared<Error>(std::move(error)));
+    }
+
+    static Result fromException(const std::exception& exception,
+                                const std::string& kind = "RuntimeError") {
+        return Result::Err(Error(
+            kind,
+            exception.what(),
+            {{"exception_type", typeid(exception).name()}}
+        ));
+    }
+
+    bool isOk() const { return error_ == nullptr; }
+    bool isErr() const { return error_ != nullptr; }
+
+    void unwrap() const {
+        if (!isOk()) {
+            throw std::runtime_error("Attempted to unwrap error: " + error_->message);
+        }
+    }
+
+    void unwrapOr(...) const {
+        // No-op for void success
+        if (isErr()) {
+            // Could throw or log here
+        }
+    }
+
+    template<typename F>
+    Result<void> map(F fn) const {
+        if (isErr()) {
+            return *this;
+        }
+        try {
+            fn();
+            return Result::Ok();
+        } catch (const std::exception& e) {
+            return Result::Err(Error{
+                "RuntimeError",
+                "map function failed: " + std::string(e.what()),
+                {{"exception_type", typeid(e).name()}}
+            });
+        }
+    }
+
+    template<typename F>
+    auto andThen(F fn) const -> decltype(fn()) {
+        using ReturnType = decltype(fn());
+
+        if (isErr()) {
+            return ReturnType::Err(*error_);
+        }
+
+        try {
+            return fn();
+        } catch (const std::exception& e) {
+            return ReturnType::Err(Error{
+                "RuntimeError",
+                "and_then function failed: " + std::string(e.what()),
+                {{"exception_type", typeid(e).name()}}
+            });
+        }
+    }
+
+    template<typename F>
+    Result<void> orElse(F fn) const {
+        if (isOk()) {
+            return Result::Ok();
+        }
+
+        try {
+            return fn(*error_);
+        } catch (const std::exception& e) {
+            return Result::Err(Error{
+                "RuntimeError",
+                "or_else function failed: " + std::string(e.what()),
+                {{"exception_type", typeid(e).name()}}
+            });
+        }
+    }
+
+    const Error& error() const {
+        return *error_;
+    }
 };
 
 } // namespace omni_sdk
